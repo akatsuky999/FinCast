@@ -12,9 +12,9 @@ datasets:
 single_window_offset: null
 
 # --- LLM Agent switches -----------------------------------------------------
-use_llm_investigator: false     # enable LLM news summarization (requires API key)
-use_llm_generator: true         # enable LLM Agent (false = deterministic fallback)
-max_generator_retries: 2        # max retries when Reflector rejects
+use_llm_briefing: false     # enable LLM news summarization (requires API key)
+use_llm_strategist: true         # enable LLM Agent (false = deterministic fallback)
+max_strategist_retries: 2        # max retries when Reflector rejects
 
 # --- Benchmark parameters ---------------------------------------------------
 test_ratio: 0.10                # fraction of windows used for testing

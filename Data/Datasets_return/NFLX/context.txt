@@ -2,7 +2,7 @@
 
 NFLX represents Netflix, a Large capitalization company in the services sector.
 The forecasting target is the daily closing price. Numeric exogenous variables are one-trading-day lagged OHLCV, lagged log return, intraday range, open-close gap, and lagged news-volume counts.
-News titles and partner headlines are aligned to the next available trading day to reduce look-ahead leakage. Use daily_news.csv as the textual sidecar when injecting market context into an investigator agent.
+News titles and partner headlines are aligned to the next available trading day to reduce look-ahead leakage. Use daily_news.csv as the textual sidecar when injecting market context into the Briefing agent.
 
 Full period: 2010-01-06 to 2020-02-06 (2539 rows).
 This dataset is intentionally not pre-split. Build train/validation/test samples from rolling windows in the experiment layer.

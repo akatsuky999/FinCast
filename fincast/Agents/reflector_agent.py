@@ -22,7 +22,7 @@ REFLECTOR_AGENT_PROMPT = dedent(
     """
     You are ReflectorAgent for a time-series forecasting system.
 
-    Audit the GeneratorAgent output using deterministic checks.
+    Audit the StrategistAgent output using deterministic checks.
     You must approve only forecasts that:
       - have the requested length and timestamps,
       - are finite predictions,
@@ -49,13 +49,13 @@ def _timestamp_list(packet: dict[str, Any], key: str = "prediction_timestamps") 
     return [str(item) for item in packet.get(key, [])]
 
 
-def _adjustment_has_support(generator_packet: dict[str, Any]) -> bool:
-    reason = generator_packet.get("adjustment_reason", {})
+def _adjustment_has_support(strategist_packet: dict[str, Any]) -> bool:
+    reason = strategist_packet.get("adjustment_reason", {})
     evidence = reason.get("evidence", [])
     if isinstance(evidence, str):
         evidence = [evidence]
     evidence_text = " ".join(str(item).lower() for item in evidence)
-    diagnostics = generator_packet.get("generator_diagnostics", {})
+    diagnostics = strategist_packet.get("strategist_diagnostics", {})
     news = diagnostics.get("news_signal", {})
     cases = diagnostics.get("similar_case_signal", {})
     disagreement = diagnostics.get("baseline_disagreement", {})
@@ -148,30 +148,30 @@ def _unsupported_numeric_claims(text: str, context: dict[str, Any]) -> list[dict
 
 
 def reflect_forecast(
-    generator_packet: dict[str, Any],
-    investigator_packet: dict[str, Any] | None = None,
+    strategist_packet: dict[str, Any],
+    briefing_packet: dict[str, Any] | None = None,
     baseline_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    investigator_packet = investigator_packet or {}
+    briefing_packet = briefing_packet or {}
     baseline_packet = baseline_packet or {}
     issues: list[str] = []
     warnings: list[str] = []
     diagnostics: dict[str, Any] = {}
 
-    horizon = int(generator_packet.get("forecast_horizon") or baseline_packet.get("forecast_horizon") or 0)
-    prediction_timestamps = _timestamp_list(generator_packet)
-    expected_timestamps = _timestamp_list(baseline_packet) or _timestamp_list(investigator_packet)
-    predictions = finite_array(generator_packet.get("final_prediction", []), fallback=np.nan)
+    horizon = int(strategist_packet.get("forecast_horizon") or baseline_packet.get("forecast_horizon") or 0)
+    prediction_timestamps = _timestamp_list(strategist_packet)
+    expected_timestamps = _timestamp_list(baseline_packet) or _timestamp_list(briefing_packet)
+    predictions = finite_array(strategist_packet.get("final_prediction", []), fallback=np.nan)
     reference = finite_array(
-        generator_packet.get("reference_prediction") or baseline_packet.get("reference_prediction", []),
+        strategist_packet.get("reference_prediction") or baseline_packet.get("reference_prediction", []),
         fallback=np.nan,
     )
     last_close = safe_float(
-        investigator_packet.get("financial_features", {}).get("last_close"),
-        safe_float(generator_packet.get("generator_diagnostics", {}).get("last_close"), 0.0),
+        briefing_packet.get("financial_features", {}).get("last_close"),
+        safe_float(strategist_packet.get("strategist_diagnostics", {}).get("last_close"), 0.0),
     )
     if last_close <= 0:
-        history = finite_array(investigator_packet.get("target_history", []), fallback=np.nan)
+        history = finite_array(briefing_packet.get("target_history", []), fallback=np.nan)
         if history.size:
             last_close = safe_float(history[-1], 0.0)
 
@@ -180,7 +180,7 @@ def reflect_forecast(
     if predictions.size != horizon:
         issues.append(f"Prediction length {predictions.size} does not match forecast_horizon {horizon}.")
     if expected_timestamps and prediction_timestamps != expected_timestamps:
-        issues.append("Prediction timestamps do not align with the baseline/investigator timestamps.")
+        issues.append("Prediction timestamps do not align with the baseline/briefing timestamps.")
     if len(prediction_timestamps) != horizon:
         issues.append("prediction_timestamps length does not match forecast_horizon.")
     if not predictions.size or not np.isfinite(predictions).all():
@@ -192,7 +192,7 @@ def reflect_forecast(
         if scale_ratio < 0.10 or scale_ratio > 10.0:
             issues.append("Prediction scale is implausible relative to the last observed value.")
 
-        history = investigator_packet.get("target_history", [])
+        history = briefing_packet.get("target_history", [])
         hist_diag = historical_return_diagnostics(history)
         step_returns = price_log_returns(last_close, predictions)
         bound = max(hist_diag["abs_return_q995"] * 1.25, hist_diag["daily_volatility"] * 4.0, 1e-4)
@@ -222,7 +222,7 @@ def reflect_forecast(
     # NEW: Volatility-aware deviation check
     if predictions.size and reference.size == predictions.size and last_close > 0:
         garch_vol = safe_float(
-            generator_packet.get("garch_volatility", {}).get("mean_daily_volatility"), 0.0
+            strategist_packet.get("garch_volatility", {}).get("mean_daily_volatility"), 0.0
         )
         if garch_vol >= 0.05:
             deviation = float(np.mean(np.abs(predictions - reference)) / max(last_close, 1e-6))
@@ -235,14 +235,14 @@ def reflect_forecast(
     if reference.size == predictions.size and predictions.size and last_close > 0:
         mean_adjustment = float(np.mean(np.abs(predictions - reference)) / max(last_close, 1e-6))
         diagnostics["mean_relative_adjustment_vs_reference"] = mean_adjustment
-        history_vol = historical_return_diagnostics(investigator_packet.get("target_history", [])).get("daily_volatility", 0.0)
+        history_vol = historical_return_diagnostics(briefing_packet.get("target_history", [])).get("daily_volatility", 0.0)
         material_threshold = max(0.0025, history_vol * 0.25)
         diagnostics["material_adjustment_threshold"] = float(material_threshold)
-        if mean_adjustment > material_threshold and not _adjustment_has_support(generator_packet):
+        if mean_adjustment > material_threshold and not _adjustment_has_support(strategist_packet):
             issues.append("Material adjustment from reference_prediction lacks news, similar-case, or model evidence.")
         elif mean_adjustment > 3.0 * material_threshold:
             # Large adjustment: require proportionally stronger evidence
-            if not _adjustment_has_support(generator_packet):
+            if not _adjustment_has_support(strategist_packet):
                 issues.append(
                     f"Large adjustment ({mean_adjustment:.4f}) from reference requires "
                     "strong evidence support."
@@ -253,22 +253,22 @@ def reflect_forecast(
                     "Verify this is justified by strong, multi-source evidence."
                 )
 
-    look_back_end_raw = investigator_packet.get("look_back_end")
+    look_back_end_raw = briefing_packet.get("look_back_end")
     if look_back_end_raw:
         look_back_end = pd.Timestamp(look_back_end_raw)
-        latest_news_date = investigator_packet.get("news_context", {}).get("latest_news_date")
+        latest_news_date = briefing_packet.get("news_context", {}).get("latest_news_date")
         if latest_news_date and pd.Timestamp(latest_news_date) > look_back_end:
-            issues.append("Investigator packet contains news dated after look_back_end.")
-        reasoning_text = _text_blob(generator_packet.get("adjustment_reason", {})) + " " + _text_blob(generator_packet.get("llm_adjustment", {}))
+            issues.append("Briefing packet contains news dated after look_back_end.")
+        reasoning_text = _text_blob(strategist_packet.get("adjustment_reason", {})) + " " + _text_blob(strategist_packet.get("llm_adjustment", {}))
         # Collect prediction timestamps to exclude from "future date" check
         known_timestamps = set()
         for ts_list_key in ("prediction_timestamps", "look_back_timestamps"):
-            for ts_str in generator_packet.get(ts_list_key, []):
+            for ts_str in strategist_packet.get(ts_list_key, []):
                 try:
                     known_timestamps.add(pd.Timestamp(ts_str).strftime("%Y-%m-%d"))
                 except Exception:
                     pass
-        for ts_str in investigator_packet.get("prediction_timestamps", []):
+        for ts_str in briefing_packet.get("prediction_timestamps", []):
             try:
                 known_timestamps.add(pd.Timestamp(ts_str).strftime("%Y-%m-%d"))
             except Exception:
@@ -286,15 +286,15 @@ def reflect_forecast(
             if ts > look_back_end:
                 future_dates.append(raw_date)
         if future_dates:
-            issues.append(f"Generator reasoning cites future date(s) beyond look_back_end: {future_dates[:3]}.")
+            issues.append(f"Strategist reasoning cites future date(s) beyond look_back_end: {future_dates[:3]}.")
         diagnostics["look_back_end"] = look_back_end.isoformat()
 
     numeric_context = {
-        "generator": generator_packet,
-        "investigator_financial_features": investigator_packet.get("financial_features", {}),
+        "strategist": strategist_packet,
+        "briefing_financial_features": briefing_packet.get("financial_features", {}),
         "baseline": baseline_packet,
     }
-    reasoning_text = _text_blob(generator_packet.get("adjustment_reason", {})) + " " + _text_blob(generator_packet.get("llm_adjustment", {}))
+    reasoning_text = _text_blob(strategist_packet.get("adjustment_reason", {})) + " " + _text_blob(strategist_packet.get("llm_adjustment", {}))
     unsupported_numbers = _unsupported_numeric_claims(reasoning_text, numeric_context)
     diagnostics["unsupported_numeric_claims"] = unsupported_numbers
     if unsupported_numbers:
@@ -302,16 +302,16 @@ def reflect_forecast(
         # LLM agent mode: semantic reasoning naturally produces interpretive numbers
         # (step indices, rounded percentages, derived stats). Treat as warnings,
         # not rejection issues — prediction values are validated separately.
-        if generator_packet.get("generator_mode") == "llm_agent":
+        if strategist_packet.get("strategist_mode") == "llm_agent":
             warnings.append(f"Reasoning contains numeric claim(s) not found in context: {samples}. "
                             "Expected — LLM reasoning naturally uses approximate/derived numbers.")
         else:
-            issues.append(f"Generator reasoning contains unsupported numeric claim(s): {samples}.")
+            issues.append(f"Strategist reasoning contains unsupported numeric claim(s): {samples}.")
 
 
-    confidence = safe_float(generator_packet.get("confidence"), 0.0)
-    disagreement = safe_float(generator_packet.get("generator_diagnostics", {}).get("baseline_disagreement", {}).get("mean_relative_std"), 0.0)
-    garch_vol = safe_float(generator_packet.get("garch_volatility", {}).get("mean_daily_volatility"), 0.0)
+    confidence = safe_float(strategist_packet.get("confidence"), 0.0)
+    disagreement = safe_float(strategist_packet.get("strategist_diagnostics", {}).get("baseline_disagreement", {}).get("mean_relative_std"), 0.0)
+    garch_vol = safe_float(strategist_packet.get("garch_volatility", {}).get("mean_daily_volatility"), 0.0)
     diagnostics["confidence"] = confidence
     diagnostics["baseline_disagreement_mean_relative_std"] = disagreement
     diagnostics["garch_mean_daily_volatility"] = garch_vol
@@ -357,8 +357,8 @@ def build_reflector_agent():
         del agent_info
         payload = _extract_payload(messages)
         report = reflect_forecast(
-            payload.get("generator_packet", {}),
-            payload.get("investigator_packet", {}),
+            payload.get("strategist_packet", {}),
+            payload.get("briefing_packet", {}),
             payload.get("baseline_packet", {}),
         )
         return ModelResponse(parts=[TextPart(json.dumps(report, ensure_ascii=False, default=json_default))], model_name="function:fincast-reflector")
@@ -368,13 +368,13 @@ def build_reflector_agent():
 
 def main() -> None:
     from fincast.Agents.baseline_agent import build_baseline_packet
-    from fincast.Agents.generator_agent import build_generator_packet
-    from fincast.Agents.investigator_agent import run_investigator
+    from fincast.Agents.strategist_agent import run_strategist
+    from fincast.Agents.briefing_agent import run_briefing
 
-    inv = run_investigator("FinCastPrice_NVDA", 1500, 5, use_llm=False)
-    base = build_baseline_packet(inv, use_llm=False)
-    gen = build_generator_packet(inv, base, use_llm=False)
-    report = reflect_forecast(gen, inv, base)
+    briefing = run_briefing("FinCastPrice_NVDA", 1500, 5, use_llm=False)
+    base = build_baseline_packet(briefing, use_llm=False)
+    strategist = run_strategist(briefing, base, use_llm=False)
+    report = reflect_forecast(strategist, briefing, base)
     print(json.dumps(report, indent=2, ensure_ascii=False))
 
 

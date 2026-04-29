@@ -53,7 +53,7 @@ def _process_one_window(
     dataset: str, ticker: str, offset: int, horizon: int,
     manifest_path: str | Path, case: dict[str, Any],
     cases: list[dict[str, Any]], train_offset_set: set[int],
-    use_llm_generator: bool, verbose: bool = False,
+    use_llm_strategist: bool, verbose: bool = False,
 ) -> list[dict[str, Any]]:
     """Process a single test window. Returns list of prediction rows."""
     import time as _time
@@ -61,12 +61,12 @@ def _process_one_window(
     packet = run_fincast_pipeline(
         dataset, int(offset), int(horizon),
         manifest_path=manifest_path,
-        use_llm_investigator=False, use_llm_baseline=False,
-        use_llm_generator=use_llm_generator,
+        use_llm_briefing=False, use_llm_baseline=False,
+        use_llm_strategist=use_llm_strategist,
         precomputed_baseline_predictions=case["baseline_predictions"],
         case_records=cases,
         training_case_offsets=train_offset_set,
-        max_generator_retries=2,
+        max_strategist_retries=2,
     )
     elapsed = _time.time() - t0
 
@@ -175,7 +175,7 @@ def run_random_sample_benchmark(
     test_ratio: float = 0.20,
     seed: int = 5053,
     datasets: list[str] | None = None,
-    use_llm_generator: bool = False,
+    use_llm_strategist: bool = False,
     force_rebuild_cases: bool = False,
     max_test_windows: int | None = None,
     concurrency: int = 1,
@@ -228,7 +228,7 @@ def run_random_sample_benchmark(
                 rows = _process_one_window(
                     dataset, ticker, offset, horizon, manifest_path,
                     case_by_offset[int(offset)], cases, train_offset_set,
-                    use_llm_generator,
+                    use_llm_strategist,
                 )
                 prediction_rows.extend(rows)
                 if idx % max(1, n_test // 100) == 0 or idx == n_test:
@@ -243,7 +243,7 @@ def run_random_sample_benchmark(
 
             # Detect API key pool size (module-level, available before any LLM call)
             try:
-                from fincast.Agents.generator_agent import api_key_count
+                from fincast.Agents.strategist_agent import api_key_count
                 n_keys = api_key_count()
             except Exception:
                 n_keys = 1
@@ -260,7 +260,7 @@ def run_random_sample_benchmark(
                     executor.submit(
                         _process_one_window, dataset, ticker, offset, horizon,
                         manifest_path, case_by_offset[int(offset)], cases,
-                        train_offset_set, use_llm_generator, True,  # verbose=True
+                        train_offset_set, use_llm_strategist, True,  # verbose=True
                     ): offset
                     for offset in test_offsets
                 }
@@ -335,7 +335,7 @@ def main() -> None:
     parser.add_argument("--test-ratio", type=float, default=0.20)
     parser.add_argument("--seed", type=int, default=5053)
     parser.add_argument("--datasets", nargs="*", default=None)
-    parser.add_argument("--use-llm-generator", action="store_true")
+    parser.add_argument("--use-llm-strategist", action="store_true")
     parser.add_argument("--force-rebuild-cases", action="store_true")
     parser.add_argument("--max-test-windows", type=int, default=None)
     args = parser.parse_args()
@@ -345,7 +345,7 @@ def main() -> None:
         test_ratio=args.test_ratio,
         seed=args.seed,
         datasets=args.datasets,
-        use_llm_generator=args.use_llm_generator,
+        use_llm_strategist=args.use_llm_strategist,
         force_rebuild_cases=args.force_rebuild_cases,
         max_test_windows=args.max_test_windows,
     )

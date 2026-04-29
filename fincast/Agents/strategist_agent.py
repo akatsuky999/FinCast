@@ -42,7 +42,7 @@ def api_key_count() -> int:
         return 1
 
 
-GENERATOR_AGENT_SYSTEM_PROMPT = dedent(
+STRATEGIST_AGENT_SYSTEM_PROMPT = dedent(
     """
 You are the core forecasting agent in an agentic time-series prediction
 system. You receive a reference forecast (mechanical ensemble of 12 models),
@@ -180,8 +180,8 @@ def _similar_case_signal(similar_cases: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _all_recent_headlines(investigator_packet: dict[str, Any]) -> list[str]:
-    news = investigator_packet.get("news_context", {})
+def _all_recent_headlines(briefing_packet: dict[str, Any]) -> list[str]:
+    news = briefing_packet.get("news_context", {})
     headlines: list[str] = []
     for key in ("recent_1d", "recent_3d", "recent_5d", "recent_20d"):
         bucket = news.get(key) or {}
@@ -196,7 +196,7 @@ def _all_recent_headlines(investigator_packet: dict[str, Any]) -> list[str]:
     return deduped[:20]
 
 
-def _build_rich_context(investigator_packet: dict[str, Any], baseline_packet: dict[str, Any]) -> dict[str, Any]:
+def _build_rich_context(briefing_packet: dict[str, Any], baseline_packet: dict[str, Any]) -> dict[str, Any]:
     """Build a streamlined context packet for the LLM agent.
 
     Only includes information the LLM needs for semantic reasoning —
@@ -204,7 +204,7 @@ def _build_rich_context(investigator_packet: dict[str, Any], baseline_packet: di
     """
     reference = finite_array(baseline_packet["reference_prediction"], fallback=1.0)
     last_close = safe_float(
-        investigator_packet.get("financial_features", {}).get("last_close"),
+        briefing_packet.get("financial_features", {}).get("last_close"),
         float(reference[0]) if reference.size else 1.0,
     )
     horizon = int(baseline_packet["forecast_horizon"])
@@ -212,9 +212,9 @@ def _build_rich_context(investigator_packet: dict[str, Any], baseline_packet: di
     garch_vol = _garch_volatility(baseline_packet)
     disagreement = _baseline_disagreement(baseline_packet, reference)
     similar_signal = _similar_case_signal(baseline_packet.get("similar_cases", []))
-    headlines = _all_recent_headlines(investigator_packet)
+    headlines = _all_recent_headlines(briefing_packet)
     news_signal = lexical_news_signal(headlines)
-    hist_diag = historical_return_diagnostics(investigator_packet.get("target_history", []))
+    hist_diag = historical_return_diagnostics(briefing_packet.get("target_history", []))
 
     # Streamlined model consensus — only key numbers, no verbose text
     mc = model_prediction_summary(
@@ -265,11 +265,11 @@ def _build_rich_context(investigator_packet: dict[str, Any], baseline_packet: di
 
     # Streamlined context — only what the LLM needs for trajectory design
     return {
-        "ticker": investigator_packet.get("ticker", ""),
+        "ticker": briefing_packet.get("ticker", ""),
         "horizon": horizon,
         "last_close": float(last_close),
-        "look_back_end": investigator_packet.get("look_back_end"),
-        "prediction_start": investigator_packet.get("prediction_start"),
+        "look_back_end": briefing_packet.get("look_back_end"),
+        "prediction_start": briefing_packet.get("prediction_start"),
         # Core forecast data
         "reference_prediction": [float(round(v, 3)) for v in reference.tolist()],
         # Model consensus: only direction + disagreement + price range
@@ -295,7 +295,7 @@ def _build_rich_context(investigator_packet: dict[str, Any], baseline_packet: di
         "evidence": {"aligned": aligned, "conflicting": conflicting},
         # Diagnostics: only the 6 most informative
         "diag": {
-            k: round(investigator_packet.get("financial_features", {}).get(k, 0), 4)
+            k: round(briefing_packet.get("financial_features", {}).get(k, 0), 4)
             for k in ["realized_volatility_daily", "max_drawdown", "skewness",
                        "trend_slope_log_price", "cumulative_log_return", "volume_spike_ratio_20d"]
         },
@@ -304,13 +304,13 @@ def _build_rich_context(investigator_packet: dict[str, Any], baseline_packet: di
     }
 
 
-def create_generator_agent(model_name: str | None = None, manifest_path: str | Path = DEFAULT_MANIFEST_PATH):
-    """Build the GeneratorAgent as Investment Committee Chair with tools."""
+def create_strategist_agent(model_name: str | None = None, manifest_path: str | Path = DEFAULT_MANIFEST_PATH):
+    """Build the StrategistAgent as Investment Committee Chair with tools."""
     try:
         from pydantic_ai import Agent, RunContext
     except Exception as exc:
         raise RuntimeError(
-            "pydantic_ai is required for the LLM Generator Agent."
+            "pydantic_ai is required for the LLM Strategist Agent."
         ) from exc
     globals()["RunContext"] = RunContext
 
@@ -320,9 +320,9 @@ def create_generator_agent(model_name: str | None = None, manifest_path: str | P
             "No pydantic-ai model configured. Set PYA_MODEL or MODEL in FinCast/.env."
         )
 
-    agent = Agent(resolved, instructions=GENERATOR_AGENT_SYSTEM_PROMPT)
+    agent = Agent(resolved, instructions=STRATEGIST_AGENT_SYSTEM_PROMPT)
 
-    # Mutable container so run_generator() can retrieve the structured prediction
+    # Mutable container so run_strategist() can retrieve the structured prediction
     # directly, bypassing unreliable text-parsing of LLM output.
     agent._emitted_prediction: dict[str, Any] | None = None
 
@@ -342,9 +342,9 @@ def create_generator_agent(model_name: str | None = None, manifest_path: str | P
         Call this FIRST in every forecasting step.
         """
         from fincast.Agents.baseline_agent import build_baseline_packet
-        from fincast.Agents.investigator_agent import run_investigator
+        from fincast.Agents.briefing_agent import run_briefing
 
-        inv = run_investigator(
+        inv = run_briefing(
             dataset_name=dataset_name,
             window_offset=int(window_offset),
             forecast_horizon=forecast_horizon,
@@ -411,19 +411,19 @@ def create_generator_agent(model_name: str | None = None, manifest_path: str | P
 
 
 def _deterministic_fallback(
-    investigator_packet: dict[str, Any],
+    briefing_packet: dict[str, Any],
     baseline_packet: dict[str, Any],
 ) -> dict[str, Any]:
-    """Deterministic generator: evidence → direction × strength → adjustment.
+    """Deterministic strategist: evidence → direction × strength → adjustment.
 
     Unlike the old version that crushed every signal through heavy damping,
     this produces visible adjustments (1-3% cumulative for strong signals)
     so the case/news evidence pipeline actually matters.
     """
-    warnings = list(investigator_packet.get("warnings", [])) + list(baseline_packet.get("warnings", []))
+    warnings = list(briefing_packet.get("warnings", [])) + list(baseline_packet.get("warnings", []))
     reference = finite_array(baseline_packet["reference_prediction"], fallback=1.0)
     last_close = safe_float(
-        investigator_packet.get("financial_features", {}).get("last_close"),
+        briefing_packet.get("financial_features", {}).get("last_close"),
         float(reference[0]) if reference.size else 1.0,
     )
     horizon = int(baseline_packet["forecast_horizon"])
@@ -431,7 +431,7 @@ def _deterministic_fallback(
     garch_vol = _garch_volatility(baseline_packet)
     disagreement = _baseline_disagreement(baseline_packet, reference)
     similar_signal = _similar_case_signal(baseline_packet.get("similar_cases", []))
-    headlines = _all_recent_headlines(investigator_packet)
+    headlines = _all_recent_headlines(briefing_packet)
     news_signal = lexical_news_signal(headlines)
 
     direction = "neutral"
@@ -472,11 +472,11 @@ def _deterministic_fallback(
 
     direction_sign = 1.0 if direction == "up" else (-1.0 if direction == "down" else 0.0)
     volatility = max(garch_vol.get("mean_daily_volatility", 0.0), safe_float(
-        investigator_packet.get("financial_features", {}).get("realized_volatility_daily"), 0.0
+        briefing_packet.get("financial_features", {}).get("realized_volatility_daily"), 0.0
     ))
     disagreement_val = safe_float(disagreement.get("mean_relative_std"), 0.0)
 
-    hist_diag = historical_return_diagnostics(investigator_packet.get("target_history", []))
+    hist_diag = historical_return_diagnostics(briefing_packet.get("target_history", []))
     # Per-step cap: adapts to stock volatility + neighbor magnitude
     base_cap = hist_diag["abs_return_q95"] * 2.0
     # Enrich with neighbor magnitude if available
@@ -497,7 +497,7 @@ def _deterministic_fallback(
     adjusted = reference * np.exp(signed_adj * ramp)
     final_prediction, bound_diag = clip_price_path_by_return_bounds(
         adjusted, last_close,
-        investigator_packet.get("target_history", []),
+        briefing_packet.get("target_history", []),
         multiplier=1.25,
     )
 
@@ -514,7 +514,7 @@ def _deterministic_fallback(
         "forecast_horizon": horizon,
         "prediction_timestamps": baseline_packet.get("prediction_timestamps", []),
         "final_prediction": final_prediction,
-        "generator_mode": "deterministic_degraded",
+        "strategist_mode": "deterministic_degraded",
         "adjustment_reason": {
             "policy": "deterministic_evidence_driven",
             "selected_direction": direction,
@@ -527,7 +527,7 @@ def _deterministic_fallback(
                           "trajectory based on neighbor pattern comparison. Results are inferior to LLM agent mode.",
         },
         "confidence": confidence * 0.80,  # Penalty for degraded mode
-        "generator_diagnostics": {
+        "strategist_diagnostics": {
             "baseline_disagreement": disagreement,
             "similar_case_signal": similar_signal,
             "news_signal": news_signal,
@@ -541,15 +541,15 @@ def _deterministic_fallback(
     }
 
 
-def run_generator(
-    investigator_packet: dict[str, Any],
+def run_strategist(
+    briefing_packet: dict[str, Any],
     baseline_packet: dict[str, Any],
     manifest_path: str | Path = DEFAULT_MANIFEST_PATH,
     use_llm: bool = True,
     model_name: str | None = None,
     max_retries: int = 2,
 ) -> dict[str, Any]:
-    """Run the Generator — the core forecasting agent.
+    """Run the Strategist — the core forecasting agent.
 
     Primary mode (use_llm=True): LLM agent synthesizes neighbor patterns,
     case evidence, model consensus, and news signals to make shape-level
@@ -573,30 +573,30 @@ def run_generator(
             "forecast_horizon": int(baseline_packet["forecast_horizon"]),
             "prediction_timestamps": baseline_packet.get("prediction_timestamps", []),
             "final_prediction": ref_list,
-            "generator_mode": "reference_locked",
+            "strategist_mode": "reference_locked",
             "adjustment_reason": {
                 "policy": "reference_locked_extreme_price",
                 "evidence": ["Reference locked: extreme price regime detected. No adjustment applied."],
                 "risk_notes": "Price outside normal range — using safe fallback.",
             },
             "confidence": 0.25,
-            "generator_diagnostics": {},
+            "strategist_diagnostics": {},
             "llm_adjustment": {"llm_adjustment_available": False, "source": "locked"},
-            "warnings": list(investigator_packet.get("warnings", [])) + list(baseline_packet.get("warnings", [])),
+            "warnings": list(briefing_packet.get("warnings", [])) + list(baseline_packet.get("warnings", [])),
         }
 
     if not use_llm:
-        return _deterministic_fallback(investigator_packet, baseline_packet)
+        return _deterministic_fallback(briefing_packet, baseline_packet)
 
-    warnings = list(investigator_packet.get("warnings", [])) + list(baseline_packet.get("warnings", []))
+    warnings = list(briefing_packet.get("warnings", [])) + list(baseline_packet.get("warnings", []))
     horizon = int(baseline_packet["forecast_horizon"])
     last_close = safe_float(
-        investigator_packet.get("financial_features", {}).get("last_close"),
+        briefing_packet.get("financial_features", {}).get("last_close"),
         float(finite_array(baseline_packet.get("reference_prediction", []), fallback=1.0)[0]),
     )
 
     # Build context once (shared across retries)
-    context = _build_rich_context(investigator_packet, baseline_packet)
+    context = _build_rich_context(briefing_packet, baseline_packet)
 
     # ── Raw API call (fast path) ──
     resolved_model = model_name or _model_name_from_env()
@@ -649,7 +649,7 @@ def run_generator(
         api_model = None
         n_keys = 0
 
-    # Module-level diagnostics for external query before run_generator() is called
+    # Module-level diagnostics for external query before run_strategist() is called
     _key_pool_size = n_keys
 
     def _call_llm(prompt_text: str, feedback_text: str = "") -> dict[str, Any] | None:
@@ -664,7 +664,7 @@ def run_generator(
                 resp = c.chat.completions.create(
                     model=api_model,
                     messages=[
-                        {"role": "system", "content": GENERATOR_AGENT_SYSTEM_PROMPT},
+                        {"role": "system", "content": STRATEGIST_AGENT_SYSTEM_PROMPT},
                         {"role": "user", "content": full_prompt},
                     ],
                     max_tokens=2500,
@@ -713,7 +713,7 @@ def run_generator(
                     hint = " (rate limited — reduce concurrency or add keys)"
                 print(f"\n  [warn] API {err_type}{hint}", file=sys.stderr, flush=True)
 
-        # Raw API failed — return None so run_generator falls back to deterministic.
+        # Raw API failed — return None so run_strategist falls back to deterministic.
         # No pydantic-ai retry (it would also fail under the same API load).
         return None
 
@@ -749,7 +749,7 @@ def run_generator(
             if attempt < max_retries:
                 feedback = f"LLM error: {exc}. Please retry."
                 continue
-            result = _deterministic_fallback(investigator_packet, baseline_packet)
+            result = _deterministic_fallback(briefing_packet, baseline_packet)
             result.setdefault("warnings", []).append(f"LLM failed after {max_retries+1} attempts: {exc}")
             return result
 
@@ -758,14 +758,14 @@ def run_generator(
             feedback = "; ".join(str(i) for i in issues)
             if attempt < max_retries:
                 continue
-            result = _deterministic_fallback(investigator_packet, baseline_packet)
+            result = _deterministic_fallback(briefing_packet, baseline_packet)
             result.setdefault("warnings", []).append(f"LLM failed after {max_retries+1} attempts: {feedback}")
             return result
 
         break
 
     if prediction_result is None or not prediction_result.get("accepted"):
-        result = _deterministic_fallback(investigator_packet, baseline_packet)
+        result = _deterministic_fallback(briefing_packet, baseline_packet)
         result.setdefault("warnings", []).append("LLM did not produce valid prediction; using fallback.")
         return result
 
@@ -785,14 +785,14 @@ def run_generator(
     final_prediction, bound_diag = clip_price_path_by_return_bounds(
         llm_predictions.tolist() if hasattr(llm_predictions, 'tolist') else list(llm_predictions),
         last_close,
-        investigator_packet.get("target_history", []),
+        briefing_packet.get("target_history", []),
         multiplier=1.25,
     )
 
     # Validate
     validation = validate_price_prediction(
         final_prediction, last_close,
-        investigator_packet.get("target_history", []),
+        briefing_packet.get("target_history", []),
         horizon,
     )
     if not validation["valid"]:
@@ -801,12 +801,12 @@ def run_generator(
     garch_vol = _garch_volatility(baseline_packet)
     disagreement = _baseline_disagreement(baseline_packet, finite_array(baseline_packet["reference_prediction"], fallback=last_close))
     similar_signal = _similar_case_signal(baseline_packet.get("similar_cases", []))
-    headlines = _all_recent_headlines(investigator_packet)
+    headlines = _all_recent_headlines(briefing_packet)
     news_signal = lexical_news_signal(headlines)
 
     confidence = 0.55
     volatility = max(garch_vol.get("mean_daily_volatility", 0.0), safe_float(
-        investigator_packet.get("financial_features", {}).get("realized_volatility_daily"), 0.0
+        briefing_packet.get("financial_features", {}).get("realized_volatility_daily"), 0.0
     ))
     disagreement_val = safe_float(disagreement.get("mean_relative_std"), 0.0)
     confidence -= min(volatility / 0.05, 1.0) * 0.20
@@ -821,14 +821,14 @@ def run_generator(
         "prediction_timestamps": baseline_packet.get("prediction_timestamps", []),
         "reference_prediction": baseline_packet.get("reference_prediction", []),
         "final_prediction": [float(v) for v in final_prediction],
-        "generator_mode": "llm_agent",
+        "strategist_mode": "llm_agent",
         "adjustment_reason": {
             "policy": "llm_agent_shape_level_reasoning",
             "evidence": prediction_result.get("evidence_summary", []),
             "risk_notes": prediction_result.get("risk_notes", ""),
         },
         "confidence": confidence,
-        "generator_diagnostics": {
+        "strategist_diagnostics": {
             "baseline_disagreement": disagreement,
             "similar_case_signal": similar_signal,
             "news_signal": news_signal,
@@ -1095,7 +1095,7 @@ def _extract_risk_section(text: str) -> str | None:
 
 
 __all__ = [
-    "GENERATOR_AGENT_SYSTEM_PROMPT",
-    "create_generator_agent",
-    "run_generator",
+    "STRATEGIST_AGENT_SYSTEM_PROMPT",
+    "create_strategist_agent",
+    "run_strategist",
 ]

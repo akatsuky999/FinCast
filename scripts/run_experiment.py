@@ -40,7 +40,7 @@ def resolve_datasets(cfg: dict) -> list[str]:
 def print_single_window_result(packet: dict) -> None:
     """Print detailed results for a single prediction window."""
     diag = packet["baseline_packet"]["baseline_diagnostics"]
-    gen = packet["generator_packet"]
+    gen = packet["strategist_packet"]
     refl = packet["reflector_report"]
 
     print("\n" + "─" * 50)
@@ -68,7 +68,7 @@ def print_single_window_result(packet: dict) -> None:
 
     if gen.get("adjustment_reason"):
         ar = gen["adjustment_reason"]
-        print(f"\n  Generator adjustment:")
+        print(f"\n  Strategist adjustment:")
         print(f"    Policy:      {ar.get('policy', 'N/A')}")
         print(f"    Direction:   {ar.get('selected_direction', 'N/A')}")
         print(f"    Strength:    {safe_float(ar.get('selected_strength'), 0):.4f}")
@@ -88,18 +88,18 @@ def run_single_window(cfg: dict, dataset: str, offset: int) -> None:
     horizon = cfg.get("predicted_window", 60)
 
     print(f"Single-window mode: {dataset} offset={offset} horizon={horizon}")
-    print(f"LLM Investigator: {cfg.get('use_llm_investigator', False)}")
-    print(f"LLM Generator:    {cfg.get('use_llm_generator', False)}")
+    print(f"LLM Briefing: {cfg.get('use_llm_briefing', False)}")
+    print(f"LLM Strategist:    {cfg.get('use_llm_strategist', False)}")
 
     packet = run_fincast_pipeline(
         dataset_name=dataset,
         window_offset=offset,
         forecast_horizon=horizon,
         manifest_path=manifest_path,
-        use_llm_investigator=cfg.get("use_llm_investigator", False),
+        use_llm_briefing=cfg.get("use_llm_briefing", False),
         use_llm_baseline=False,
-        use_llm_generator=cfg.get("use_llm_generator", False),
-        max_generator_retries=cfg.get("max_generator_retries", 2),
+        use_llm_strategist=cfg.get("use_llm_strategist", False),
+        max_strategist_retries=cfg.get("max_strategist_retries", 2),
     )
     print_single_window_result(packet)
 
@@ -110,7 +110,7 @@ def _run_one_dataset(
     output_dir: str,
     test_ratio: float,
     seed: int,
-    use_llm_generator: bool,
+    use_llm_strategist: bool,
     force_rebuild_cases: bool,
     max_test_windows: int | None,
     concurrency: int,
@@ -121,7 +121,7 @@ def _run_one_dataset(
     return run_random_sample_benchmark(
         manifest_path=manifest_path, output_dir=output_dir,
         test_ratio=test_ratio, seed=seed, datasets=[dataset],
-        use_llm_generator=use_llm_generator,
+        use_llm_strategist=use_llm_strategist,
         force_rebuild_cases=force_rebuild_cases,
         max_test_windows=max_test_windows,
         concurrency=concurrency,
@@ -136,7 +136,7 @@ def run_benchmark(cfg: dict) -> None:
     parallel = cfg.get("parallel", False)
     test_ratio = cfg.get("test_ratio", 0.20)
     split_seed = cfg.get("split_seed", 5053)
-    use_llm = cfg.get("use_llm_generator", False)
+    use_llm = cfg.get("use_llm_strategist", False)
     force = cfg.get("force_rebuild_cases", False)
     max_w = cfg.get("max_test_windows")
     concurrency = cfg.get("test_concurrency", 1)
@@ -144,7 +144,7 @@ def run_benchmark(cfg: dict) -> None:
     # Sanity check for LLM concurrency
     if use_llm and concurrency > 1:
         try:
-            from fincast.Agents.generator_agent import api_key_count
+            from fincast.Agents.strategist_agent import api_key_count
             n_keys = api_key_count()
         except Exception:
             n_keys = 1
@@ -156,7 +156,7 @@ def run_benchmark(cfg: dict) -> None:
     print("Full Benchmark Mode")
     print(f"  Datasets:     {', '.join(datasets)}")
     print(f"  Test ratio:   {test_ratio}")
-    print(f"  LLM Generator: {use_llm}")
+    print(f"  LLM Strategist: {use_llm}")
     print(f"  Parallel:     {parallel}")
     print(f"  Output:       {output_dir}")
 
@@ -195,7 +195,7 @@ def run_benchmark(cfg: dict) -> None:
             manifest_path=manifest_path, output_dir=output_dir,
             test_ratio=test_ratio, seed=split_seed,
             datasets=datasets if datasets else None,
-            use_llm_generator=use_llm, force_rebuild_cases=force,
+            use_llm_strategist=use_llm, force_rebuild_cases=force,
             max_test_windows=max_w, concurrency=concurrency,
         )
         print(f"\n  Benchmark complete. Output files:")
@@ -221,8 +221,8 @@ def main() -> None:
         help="Dataset names to evaluate (overrides config)",
     )
     parser.add_argument(
-        "--use-llm-generator", action="store_true", default=None,
-        help="Enable LLM Generator Agent",
+        "--use-llm-strategist", action="store_true", default=None,
+        help="Enable LLM Strategist Agent",
     )
     parser.add_argument(
         "--parallel", action="store_true", default=None,
@@ -238,8 +238,8 @@ def main() -> None:
 
     if args.datasets is not None:
         cfg["datasets"] = args.datasets
-    if args.use_llm_generator is not None:
-        cfg["use_llm_generator"] = args.use_llm_generator
+    if args.use_llm_strategist is not None:
+        cfg["use_llm_strategist"] = args.use_llm_strategist
     if args.parallel is not None:
         cfg["parallel"] = args.parallel
     if args.test_concurrency is not None:

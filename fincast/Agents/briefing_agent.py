@@ -13,9 +13,9 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 ENV_PATH = PACKAGE_ROOT / ".env"
 
 
-INVESTIGATOR_AGENT_PROMPT = dedent(
+BRIEFING_AGENT_PROMPT = dedent(
     """
-    You are InvestigatorAgent for FinCast, a financial time-series forecasting workflow.
+    You are BriefingAgent for FinCast, a financial time-series forecasting workflow.
 
     For every request:
       1. Call `gather_forecast_inputs` exactly once with the dataset_name, window_offset, and forecast_horizon provided by the user.
@@ -107,8 +107,8 @@ def _parse_summary(text: str) -> dict[str, Any]:
     }
 
 
-def build_investigator_agent(model_name: str | None = None, manifest_path: str | Path = DEFAULT_MANIFEST_PATH):
-    """Build the pydantic-ai Investigator Agent.
+def build_briefing_agent(model_name: str | None = None, manifest_path: str | Path = DEFAULT_MANIFEST_PATH):
+    """Build the pydantic-ai Briefing Agent.
 
     The import is intentionally lazy so deterministic tools work even when
     pydantic-ai is not installed in the active environment.
@@ -118,7 +118,7 @@ def build_investigator_agent(model_name: str | None = None, manifest_path: str |
         from pydantic_ai import Agent, RunContext  # type: ignore
     except Exception as exc:  # pragma: no cover - depends on local env
         raise RuntimeError(
-            "pydantic_ai is required for the LLM Investigator Agent. "
+            "pydantic_ai is required for the LLM Briefing Agent. "
             "The deterministic dataloader can still be used without it."
         ) from exc
     globals()["RunContext"] = RunContext
@@ -127,7 +127,7 @@ def build_investigator_agent(model_name: str | None = None, manifest_path: str |
     if not resolved_model:
         raise RuntimeError("No pydantic-ai model configured. Set PYA_MODEL or MODEL in FinCast/.env.")
 
-    agent = Agent(resolved_model, instructions=INVESTIGATOR_AGENT_PROMPT)
+    agent = Agent(resolved_model, instructions=BRIEFING_AGENT_PROMPT)
 
     @agent.tool
     def gather_forecast_inputs(
@@ -146,7 +146,7 @@ def build_investigator_agent(model_name: str | None = None, manifest_path: str |
     return agent
 
 
-def run_investigator(
+def run_briefing(
     dataset_name: str,
     window_offset: int = 0,
     forecast_horizon: int | None = None,
@@ -154,7 +154,7 @@ def run_investigator(
     use_llm: bool = True,
     model_name: str | None = None,
 ) -> dict[str, Any]:
-    """Return a FinCast Investigator packet with optional LLM summaries."""
+    """Return a FinCast Briefing packet with optional LLM summaries."""
 
     packet = deterministic_gather_forecast_inputs(
         dataset_name=dataset_name,
@@ -166,7 +166,7 @@ def run_investigator(
         return packet
 
     try:
-        agent = build_investigator_agent(model_name=model_name, manifest_path=manifest_path)
+        agent = build_briefing_agent(model_name=model_name, manifest_path=manifest_path)
         prompt = json.dumps(
             {
                 "dataset_name": dataset_name,
@@ -177,7 +177,7 @@ def run_investigator(
         result = agent.run_sync(prompt)
         packet["llm_summary"] = _parse_summary(_result_output(result))
     except Exception as exc:
-        packet.setdefault("warnings", []).append(f"LLM Investigator summary unavailable: {exc}")
+        packet.setdefault("warnings", []).append(f"LLM Briefing summary unavailable: {exc}")
         packet["llm_summary"] = {
             "llm_summary_available": False,
             "news_summary": "",
@@ -192,7 +192,7 @@ def main() -> None:
     window_offset = int(os.getenv("FINCAST_WINDOW_OFFSET", "0"))
     forecast_horizon = int(os.getenv("FINCAST_FORECAST_HORIZON", "5"))
     use_llm = os.getenv("FINCAST_USE_LLM", "1") != "0"
-    packet = run_investigator(
+    packet = run_briefing(
         dataset_name=dataset_name,
         window_offset=window_offset,
         forecast_horizon=forecast_horizon,
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
 
 __all__ = [
-    "INVESTIGATOR_AGENT_PROMPT",
-    "build_investigator_agent",
-    "run_investigator",
+    "BRIEFING_AGENT_PROMPT",
+    "build_briefing_agent",
+    "run_briefing",
 ]

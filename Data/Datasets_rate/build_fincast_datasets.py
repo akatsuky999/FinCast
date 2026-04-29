@@ -228,7 +228,7 @@ def _write_context(ticker: str, meta: pd.Series | None, full: pd.DataFrame) -> s
         f"# FinCast-{ticker} contextual briefing\n\n"
         f"{ticker} represents {company}, a {market_cap_group} capitalization company in the {sector} sector.\n"
         "The forecasting target is daily log return of the stock close price. Numeric exogenous variables are one-trading-day lagged OHLCV, lagged return, intraday range, open-close gap, and lagged news-volume counts.\n"
-        "News titles and partner headlines are aligned to the next available trading day to reduce look-ahead leakage. Use daily_news.csv as the textual sidecar when injecting market context into an investigator agent.\n\n"
+        "News titles and partner headlines are aligned to the next available trading day to reduce look-ahead leakage. Use daily_news.csv as the textual sidecar when injecting market context into the Briefing agent.\n\n"
         f"Full period: {full['date'].min().date()} to {full['date'].max().date()} ({len(full)} rows).\n"
         "This dataset is intentionally not pre-split. Build train/validation/test samples from rolling windows in the experiment layer.\n"
     )

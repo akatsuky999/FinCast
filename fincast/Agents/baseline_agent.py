@@ -236,7 +236,7 @@ def _read_window_from_packet(packet: dict[str, Any]) -> pd.DataFrame:
 
 
 def build_baseline_packet(
-    investigator_packet: dict[str, Any],
+    briefing_packet: dict[str, Any],
     manifest_path: str | Path = DEFAULT_MANIFEST_PATH,
     top_k: int = 20,
     use_llm: bool = False,
@@ -252,11 +252,11 @@ def build_baseline_packet(
     artifacts and only computes what's needed for the current window.
     """
     warnings: list[str] = []
-    dataset = investigator_packet["dataset"]
-    horizon = int(investigator_packet["forecast_horizon"])
+    dataset = briefing_packet["dataset"]
+    horizon = int(briefing_packet["forecast_horizon"])
     loader = FinCastDataLoader(manifest_path)
     entry = loader.resolve_dataset(dataset)
-    target_history = np.asarray(investigator_packet.get("target_history", []), dtype=float)
+    target_history = np.asarray(briefing_packet.get("target_history", []), dtype=float)
 
     # --- Load pre-built case library + clusters (training artifacts) ---
     if case_records is None:
@@ -276,7 +276,7 @@ def build_baseline_packet(
         } if tw > 0 else {}
 
     # --- Run only cluster-voted models on current window ---
-    current_window_df = _read_window_from_packet(investigator_packet)
+    current_window_df = _read_window_from_packet(briefing_packet)
     if precomputed_baseline_predictions is not None:
         baseline_predictions = precomputed_baseline_predictions
     elif cluster_model_weights:
@@ -289,17 +289,17 @@ def build_baseline_packet(
                 continue
             from fincast.basemodels.models import _safe_forecast
             fc = _safe_forecast(model, current_window_df, horizon,
-                               investigator_packet["prediction_timestamps"])
+                               briefing_packet["prediction_timestamps"])
             baseline_predictions[name] = fc.to_dict()
     else:
         # No cluster — run all 12 as fallback
         baseline_predictions = run_all_baselines(
-            current_window_df, horizon, investigator_packet["prediction_timestamps"])
+            current_window_df, horizon, briefing_packet["prediction_timestamps"])
 
     model_names = list(baseline_predictions.keys())
 
     # --- Retrieve similar cases for evidence + case-based weighting ---
-    current_end = pd.Timestamp(investigator_packet["look_back_end"])
+    current_end = pd.Timestamp(briefing_packet["look_back_end"])
     train_offsets = None if training_case_offsets is None else {int(v) for v in training_case_offsets}
     allowed_cases = [
         case for case in cases
@@ -346,7 +346,7 @@ def build_baseline_packet(
     # ── Extreme price regime detection ──
     # When current price is far outside the training distribution,
     # all models become unreliable. Fall back to HistoricAverage.
-    lc_val = investigator_packet.get("financial_features", {}).get("last_close", 0.0)
+    lc_val = briefing_packet.get("financial_features", {}).get("last_close", 0.0)
     last_close = float(lc_val) if lc_val else 0.0
     price_extreme = False
     if cases and last_close > 0:
@@ -384,7 +384,7 @@ def build_baseline_packet(
 
     # ── Adaptive shrinkage to HistoricAverage ──
     # Only for high-volatility stocks (NFLX) where mean reversion dominates.
-    vol = float(investigator_packet.get("financial_features", {}).get("realized_volatility_daily", 0.01) or 0.01)
+    vol = float(briefing_packet.get("financial_features", {}).get("realized_volatility_daily", 0.01) or 0.01)
     high_vol = vol > 0.025
     top1_sim = float(similar[0].get("similarity_score", 0.0) or 0.0) if (similar and similar[0].get("similarity_score") is not None) else 0.0
 
@@ -465,10 +465,10 @@ def build_baseline_packet(
 
     packet = {
         "dataset": dataset,
-        "ticker": investigator_packet["ticker"],
-        "window_offset": investigator_packet["window_offset"],
+        "ticker": briefing_packet["ticker"],
+        "window_offset": briefing_packet["window_offset"],
         "forecast_horizon": horizon,
-        "prediction_timestamps": investigator_packet["prediction_timestamps"],
+        "prediction_timestamps": briefing_packet["prediction_timestamps"],
         "baseline_predictions": baseline_predictions,
         "selected_models": [name for name, weight in sorted(weights.items(), key=lambda kv: kv[1], reverse=True) if weight > 1e-6],
         "model_weights": weights,

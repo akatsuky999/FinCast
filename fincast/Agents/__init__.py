@@ -1,30 +1,30 @@
 __all__ = [
     "BASELINE_AGENT_PROMPT",
-    "GENERATOR_AGENT_PROMPT",
-    "INVESTIGATOR_AGENT_PROMPT",
+    "STRATEGIST_AGENT_SYSTEM_PROMPT",
+    "BRIEFING_AGENT_PROMPT",
     "REFLECTOR_AGENT_PROMPT",
     "attach_llm_explanation",
-    "build_generator_agent",
+    "create_strategist_agent",
     "build_baseline_agent",
     "build_baseline_packet",
-    "build_investigator_agent",
+    "build_briefing_agent",
     "build_reflector_agent",
     "run_fincast_pipeline",
-    "run_generator",
-    "run_investigator",
+    "run_strategist",
+    "run_briefing",
     "reflect_forecast",
 ]
 
 
 def __getattr__(name):
     if name in {
-        "INVESTIGATOR_AGENT_PROMPT",
-        "build_investigator_agent",
-        "run_investigator",
+        "BRIEFING_AGENT_PROMPT",
+        "build_briefing_agent",
+        "run_briefing",
     }:
-        from . import investigator_agent
+        from . import briefing_agent
 
-        return getattr(investigator_agent, name)
+        return getattr(briefing_agent, name)
     if name in {
         "BASELINE_AGENT_PROMPT",
         "attach_llm_explanation",
@@ -35,13 +35,13 @@ def __getattr__(name):
 
         return getattr(baseline_agent, name)
     if name in {
-        "GENERATOR_AGENT_PROMPT",
-        "build_generator_agent",
-        "run_generator",
+        "STRATEGIST_AGENT_SYSTEM_PROMPT",
+        "create_strategist_agent",
+        "run_strategist",
     }:
-        from . import generator_agent
+        from . import strategist_agent
 
-        return getattr(generator_agent, name)
+        return getattr(strategist_agent, name)
     if name in {
         "REFLECTOR_AGENT_PROMPT",
         "build_reflector_agent",
