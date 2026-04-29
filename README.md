@@ -39,8 +39,6 @@ Example result on NFLX:
 | FinCast | 85.10 | 41.05 | 62.65% |
 | HistoricAverage | 88.56 | 50.22 | 44.09% |
 | SeasonalNaive | 96.79 | 42.10 | 37.57% |
-| LastClose | 97.59 | 40.99 | 0.02% |
-| AutoETS | 97.59 | 40.99 | 0.02% |
 | ARIMALogPrice | 97.81 | 41.47 | 35.02% |
 | ARIMAXPrice | 98.24 | 41.03 | 52.12% |
 | ARMAGARCHReturn | 104.39 | 46.35 | 46.89% |
