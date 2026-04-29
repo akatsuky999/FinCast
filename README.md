@@ -1,10 +1,14 @@
 <table>
   <tr>
     <td width="190" align="center">
-      <img src="assets/fincast-logo.png" alt="FinCast logo" width="170">
+      <img src="assets/fincast-logo.png" alt="FinCast logo" width="130">
     </td>
     <td bgcolor="#164f83">
       <h1><font color="white">FinCast: A Simple Agentic Framework for Financial Time Series Forecasting</font></h1>
+      <p>
+        <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
+        <img src="https://img.shields.io/badge/requirements.txt-available-2f855a" alt="requirements.txt available">
+      </p>
     </td>
   </tr>
 </table>
@@ -60,6 +64,12 @@ Example result on NFLX:
 </div>
 
 ## Usage
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
 
 Build the case library:
 
