@@ -18,16 +18,26 @@ library built from similar historical windows. In practice, the pipeline is:
 Briefing -> Baseline + Case Library -> Strategist -> Reflector
 ```
 
-The baseline stage builds a reference forecast:
+The baseline models are not the final answer. They serve as a structured
+proposal space: FinCast first retrieves similar historical regimes, compares
+which models worked in those regimes, and builds a reference trajectory:
 
 $$
 \hat{y}_{ref} = \sum_i w_i \hat{y}_i
 $$
 
-where model weights are estimated from cluster voting and similar-case
-performance. The Strategist may adjust this reference using news and case
-evidence, while the Reflector checks length, scale, leakage, and financial
-reasonableness.
+The Strategist then reasons over the reference path, retrieved cases, recent
+news, and model disagreement to produce the final trajectory. The Reflector
+checks the output for length, scale, leakage, and financial reasonableness.
+
+Example result on NFLX:
+
+| Model | MAE | RMSE | Directional Accuracy |
+| --- | ---: | ---: | ---: |
+| FinCast | 41.05 | 85.10 | 62.65% |
+| ARIMAXPrice | 41.03 | 98.24 | 52.12% |
+| Theta | 43.35 | 111.22 | 61.32% |
+| RandomWalkDrift | 50.42 | 136.32 | 57.37% |
 
 ## Usage
 
@@ -61,10 +71,8 @@ For non-LLM experiments, set `use_llm_strategist: false` in
 
 The datasets are built from public stock price and news sources:
 
-- Massive Stock News Analysis DB for NLP Backtests:  
-  https://www.kaggle.com/datasets/miguelaenlle/massive-stock-news-analysis-db-for-nlpbacktests?resource=download
-- 6000 NASDAQ Stocks Historical Daily Prices:  
-  https://www.kaggle.com/datasets/raymondsunartio/6000-nasdaq-stocks-historical-daily-prices
+- [Massive Stock News Analysis DB for NLP Backtests](https://www.kaggle.com/datasets/miguelaenlle/massive-stock-news-analysis-db-for-nlpbacktests?resource=download)
+- [6000 NASDAQ Stocks Historical Daily Prices](https://www.kaggle.com/datasets/raymondsunartio/6000-nasdaq-stocks-historical-daily-prices)
 
 ## Acknowledgements
 
