@@ -14,34 +14,16 @@
 </table>
 
 FinCast is a lightweight research framework for financial time series forecasting.
-It combines classical forecasting models, historical case retrieval, news context,
-and an optional LLM-based agent to produce price-level forecasts.
-
-Given a look-back window $X_{t-L:t}$, recent aligned news $N_{t-L:t}$, and a
-forecast horizon $H$, FinCast predicts:
-
-$$
-\hat{Y}_{t+1:t+H} = \mathrm{Reflector}(\mathrm{Strategist}(X, N, C, B))
-$$
-
-where $B$ is the baseline model ensemble and $C$ is the retrieved case
-library built from similar historical windows. In practice, the pipeline is:
+It combines classical forecasting models, historical case retrieval, aligned
+news context, and an optional LLM strategist to produce price-level forecasts.
 
 ```text
 Briefing -> Baseline + Case Library -> Strategist -> Reflector
 ```
 
-The baseline models are not the final answer. They serve as a structured
-proposal space: FinCast first retrieves similar historical regimes, compares
-which models worked in those regimes, and builds a reference trajectory:
-
-$$
-\hat{y}_{ref} = \sum_i w_i \hat{y}_i
-$$
-
-The Strategist then reasons over the reference path, retrieved cases, recent
-news, and model disagreement to produce the final trajectory. The Reflector
-checks the output for length, scale, leakage, and financial reasonableness.
+Baseline models provide candidate trajectories. Retrieved cases and recent
+news help the Strategist refine the final path, while the Reflector checks
+scale, leakage, and financial reasonableness.
 
 Example result on NFLX:
 
