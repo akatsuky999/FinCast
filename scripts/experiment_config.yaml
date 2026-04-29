@@ -1,0 +1,29 @@
+# =============================================================================
+# FinCast Experiment Configuration
+# =============================================================================
+
+manifest_path: FinCast/Data/Datasets_return/manifest_fincast_price.yaml
+output_dir: FinCast/outputs
+
+datasets:
+  - FinCastPrice_NVDA
+  - FinCastPrice_NFLX
+
+single_window_offset: null
+
+# --- LLM Agent switches -----------------------------------------------------
+use_llm_investigator: false     # enable LLM news summarization (requires API key)
+use_llm_generator: true         # enable LLM Agent (false = deterministic fallback)
+max_generator_retries: 2        # max retries when Reflector rejects
+
+# --- Benchmark parameters ---------------------------------------------------
+test_ratio: 0.10                # fraction of windows used for testing
+split_seed: 5053                # random seed for train/test split
+max_test_windows: null          # max test windows (null = use all)
+force_rebuild_cases: false      # force rebuild case library
+
+#parallel: false
+#test_concurrency: 18
+#
+#verbose: true
+#save_predictions_csv: true

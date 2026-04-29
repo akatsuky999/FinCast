@@ -1,0 +1,19 @@
+name: FinCast price full-series benchmark
+use_features: True
+use_exogenous: True
+look_back: 60
+predicted_window: 60
+sliding_window: 3
+frequency: B
+
+datasets:
+  - name: FinCastPrice_NVDA
+    aliases: [nvda_price, NVDA_PRICE]
+    full_csv: FinCast/Data/Datasets_return/NVDA/full.csv
+    daily_news_csv: FinCast/Data/Datasets_return/NVDA/daily_news.csv
+    context_prompt_file: FinCast/Data/Datasets_return/NVDA/context.txt
+  - name: FinCastPrice_NFLX
+    aliases: [nflx_price, NFLX_PRICE]
+    full_csv: FinCast/Data/Datasets_return/NFLX/full.csv
+    daily_news_csv: FinCast/Data/Datasets_return/NFLX/daily_news.csv
+    context_prompt_file: FinCast/Data/Datasets_return/NFLX/context.txt

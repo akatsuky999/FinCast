@@ -1,0 +1,3 @@
+ticker,full_rows,news_days,news_items,target_min,target_max,start,end
+NVDA,2539,1063,2873,8.8825,289.36,2010-01-06,2020-02-06
+NFLX,2539,711,2722,49.13,707.61,2010-01-06,2020-02-06

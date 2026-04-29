@@ -1,0 +1,22 @@
+# =============================================================================
+# FinCast Training Configuration
+# =============================================================================
+
+look_back: 60
+predicted_window: 60
+sliding_window: 3
+manifest_path: FinCast/Data/Datasets_return/manifest_fincast_price.yaml
+
+# --- Case Library cache ----------------------------------------------------
+force_rebuild: false        # true = rebuild even if cache exists
+max_cases: null
+
+# --- Clustering parameters -------------------------------------------------
+num_clusters: 6             # K-Medoids cluster count
+cluster_method: weighted
+min_votes: 3                # minimum votes for a model to participate in a cluster
+cluster_seed: 0             # random seed for reproducibility
+
+datasets:
+  - FinCastPrice_NVDA
+  - FinCastPrice_NFLX

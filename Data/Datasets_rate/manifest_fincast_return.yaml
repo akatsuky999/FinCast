@@ -1,0 +1,19 @@
+name: FinCast return full-series benchmark
+use_features: True
+use_exogenous: True
+look_back: 60
+predicted_window: 5
+sliding_window: 5
+frequency: B
+
+datasets:
+  - name: FinCast_NVDA
+    aliases: [nvda, NVDA]
+    full_csv: FinCast/Data/Datasets_rate/NVDA/full.csv
+    daily_news_csv: FinCast/Data/Datasets_rate/NVDA/daily_news.csv
+    context_prompt_file: FinCast/Data/Datasets_rate/NVDA/context.txt
+  - name: FinCast_NFLX
+    aliases: [nflx, NFLX]
+    full_csv: FinCast/Data/Datasets_rate/NFLX/full.csv
+    daily_news_csv: FinCast/Data/Datasets_rate/NFLX/daily_news.csv
+    context_prompt_file: FinCast/Data/Datasets_rate/NFLX/context.txt
