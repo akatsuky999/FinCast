@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/fincast-logo.png" alt="FinCast logo" width="180">
+</p>
+
 # FinCast: A Simple Agentic Framework for Financial Time Series Forecasting
 
 FinCast is a lightweight research framework for financial time series forecasting.
