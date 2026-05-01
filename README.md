@@ -106,3 +106,12 @@ Thanks to [AlphaCast](https://github.com/SkyeGT/AlphaCast_Official) and
 [TimeSeriesScientist](https://github.com/Y-Research-SBU/TimeSeriesScientist)
 for their open-source code and research work. We also thank the public data
 providers and Kaggle dataset contributors for making this project possible.
+
+## Limitations
+
+**HKUST MSDM 5053** course project: limited **time and budget** mean this is
+not publishable-paper rigor—see `assets/Paper_v1.pdf` and any numbers here **for
+reference only** (not investment advice). FinCast augments **classical**
+statistical baselines (not SOTA deep forecasters); experiments are **narrow**
+and the **LLM choice is fixed**.
+
