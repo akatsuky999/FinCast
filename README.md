@@ -39,6 +39,11 @@ Baseline models provide candidate trajectories; retrieved cases and recent
 news help refine the final path, while the Reflector checks scale, leakage,
 and financial reasonableness.
 
+<div align="center">
+
+![Figure 4](figures/Fig4.png)
+
+</div>
 
 ## Usage
 
