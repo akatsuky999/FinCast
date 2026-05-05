@@ -39,25 +39,6 @@ Baseline models provide candidate trajectories; retrieved cases and recent
 news help refine the final path, while the Reflector checks scale, leakage,
 and financial reasonableness.
 
-Example result on NFLX:
-
-<div align="center">
-
-| Model | RMSE | MAE | Directional Accuracy |
-| --- | ---: | ---: | ---: |
-| FinCast | 85.10 | 41.05 | 62.65% |
-| HistoricAverage | 88.56 | 50.22 | 44.09% |
-| SeasonalNaive | 96.79 | 42.10 | 37.57% |
-| ARIMALogPrice | 97.81 | 41.47 | 35.02% |
-| ARIMAXPrice | 98.24 | 41.03 | 52.12% |
-| ARMAGARCHReturn | 104.39 | 46.35 | 46.89% |
-| Theta | 111.22 | 43.35 | 61.32% |
-| EWMAReturn | 124.81 | 53.94 | 41.32% |
-| ARMAReturn | 136.21 | 50.76 | 56.38% |
-| RandomWalkDrift | 136.32 | 50.42 | 57.37% |
-| ARReturn | 141.62 | 52.82 | 55.04% |
-
-</div>
 
 ## Usage
 
